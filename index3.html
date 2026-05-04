@@ -1,0 +1,1238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <title>Deka Mile Tracker</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
+      background: #f2f2f7;
+      color: #1c1c1e;
+      min-height: 100vh;
+      padding-top: env(safe-area-inset-top, 12px);
+      padding-left: env(safe-area-inset-left, 0);
+      padding-right: env(safe-area-inset-right, 0);
+      padding-bottom: calc(110px + env(safe-area-inset-bottom, 0px));
+    }
+    .container { max-width: 600px; margin: 0 auto; padding: 14px 14px 0; }
+
+    /* ── Header ── */
+    h1 { font-size: 20px; font-weight: 700; letter-spacing: -0.3px; }
+    .subtitle { font-size: 13px; color: #6c6c70; margin-top: 2px; margin-bottom: 14px; }
+
+    /* ── Cards ── */
+    .card { background: #fff; border-radius: 14px; padding: 14px; margin-bottom: 12px; }
+
+    /* ── Mode selector ── */
+    .mode-row { display: flex; gap: 8px; margin-bottom: 12px; }
+    .mode-btn {
+      flex: 1; padding: 10px 0; border: 2px solid #e5e5ea; border-radius: 10px;
+      background: #fff; font-size: 14px; font-weight: 600; color: #6c6c70;
+      cursor: pointer; text-align: center; transition: all 0.15s;
+    }
+    .mode-btn.active { border-color: #007aff; color: #007aff; background: #e8f2ff; }
+
+    /* ── Competitor setup ── */
+    .competitor-row {
+      display: flex; align-items: center; gap: 10px; margin-bottom: 10px;
+    }
+    .competitor-row:last-of-type { margin-bottom: 0; }
+    .color-swatch {
+      width: 32px; height: 32px; border-radius: 50%; border: none;
+      cursor: pointer; flex-shrink: 0; padding: 0;
+      -webkit-appearance: none; overflow: hidden;
+    }
+    .color-swatch::-webkit-color-swatch-wrapper { padding: 0; }
+    .color-swatch::-webkit-color-swatch { border: none; border-radius: 50%; }
+    .name-input {
+      flex: 1; padding: 8px 10px; border: 1.5px solid #d1d1d6;
+      border-radius: 8px; font-size: 15px; font-weight: 500;
+      color: #1c1c1e; outline: none; background: #f2f2f7;
+    }
+    .name-input:focus { border-color: #007aff; background: #fff; }
+    .competitor-label {
+      font-size: 11px; font-weight: 700; letter-spacing: 0.04em;
+      padding: 3px 8px; border-radius: 6px; color: #fff; flex-shrink: 0;
+    }
+
+    /* ── Section header ── */
+    .section-hdr {
+      font-size: 12px; font-weight: 700; color: #6c6c70;
+      letter-spacing: 0.06em; text-transform: uppercase;
+      margin: 16px 0 6px 2px;
+    }
+
+    /* ── Summary grid ── */
+    .summary-grid { display: grid; gap: 8px; margin-bottom: 12px; }
+    .summary-grid.solo    { grid-template-columns: repeat(3,1fr); }
+    .summary-grid.partner { grid-template-columns: repeat(3,1fr); }
+    .metric { background: #fff; border-radius: 12px; padding: 10px 10px 11px; }
+    .metric-label { font-size: 10px; color: #6c6c70; margin-bottom: 3px; line-height: 1.3; }
+    .metric-value { font-size: 16px; font-weight: 600; font-variant-numeric: tabular-nums; }
+    .metric-value .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 4px; vertical-align: middle; }
+
+    /* ── Chart ── */
+    .legend { display: flex; gap: 14px; font-size: 12px; color: #6c6c70; margin-bottom: 6px; flex-wrap: wrap; }
+    .legend span { display: flex; align-items: center; gap: 5px; }
+    .legend-sq { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
+    .chart-wrap { background: #fff; border-radius: 12px; padding: 12px 10px 10px; margin-bottom: 12px; height: 260px; position: relative; }
+    .chart-wrap canvas { width: 100% !important; height: 100% !important; }
+
+    /* ── Lock panel ── */
+    .lock-row-1 { display: flex; align-items: center; justify-content: space-between; }
+    .toggle-label { font-size: 15px; font-weight: 500; }
+    .toggle { position: relative; width: 51px; height: 31px; flex-shrink: 0; }
+    .toggle input { opacity: 0; width: 0; height: 0; }
+    .toggle-track { position: absolute; inset: 0; background: #e5e5ea; border-radius: 15.5px; cursor: pointer; transition: background 0.2s; }
+    .toggle input:checked + .toggle-track { background: #34c759; }
+    .toggle-track::after { content: ''; position: absolute; width: 27px; height: 27px; left: 2px; top: 2px; background: #fff; border-radius: 50%; box-shadow: 0 2px 5px rgba(0,0,0,0.3); transition: transform 0.2s; }
+    .toggle input:checked + .toggle-track::after { transform: translateX(20px); }
+    .lock-row-2 { display: flex; align-items: center; gap: 10px; margin-top: 12px; opacity: 0.35; pointer-events: none; transition: opacity 0.2s; flex-wrap: wrap; }
+    .lock-row-2.active { opacity: 1; pointer-events: auto; }
+    .lock-row-2 label { font-size: 13px; color: #6c6c70; white-space: nowrap; }
+    .num-input {
+      width: 72px; padding: 7px 10px; border: 1.5px solid #d1d1d6; border-radius: 8px;
+      font-size: 17px; font-weight: 600; font-variant-numeric: tabular-nums;
+      color: #1c1c1e; text-align: center; outline: none; -webkit-appearance: none; background: #f2f2f7;
+    }
+    .num-input:focus { border-color: #007aff; background: #fff; }
+    .num-input::-webkit-inner-spin-button, .num-input::-webkit-outer-spin-button { -webkit-appearance: none; }
+    .lock-hint { font-size: 12px; color: #6c6c70; }
+
+    /* ── Segment list ── */
+    .seg-list { background: #fff; border-radius: 14px; padding: 0 14px; margin-bottom: 12px; }
+    .seg-row { padding: 12px 0; border-bottom: 1px solid #f2f2f7; }
+    .seg-row:last-child { border-bottom: none; }
+
+    .seg-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+    .seg-left { display: flex; align-items: center; gap: 7px; }
+    .tag { display: inline-block; font-size: 10px; padding: 2px 7px; border-radius: 5px; font-weight: 700; letter-spacing: 0.02em; flex-shrink: 0; }
+    .tag-run  { background: #e0f0ff; color: #0071e3; }
+    .tag-zone { background: #e6f4d7; color: #248a00; }
+    .seg-name { font-size: 14px; font-weight: 600; }
+    .seg-sub  { font-size: 12px; color: #6c6c70; margin-bottom: 5px; }
+
+    /* solo time */
+    .seg-time { font-size: 19px; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -0.3px; min-width: 44px; text-align: right; }
+
+    /* run shading */
+    .shade-runs .seg-row.is-run { background: #eef6ff; border-radius: 10px; padding-left: 8px; padding-right: 8px; margin: 2px -8px; }
+
+    /* partner per-competitor times */
+    .partner-times { display: flex; gap: 8px; margin-bottom: 5px; }
+    .pt-block { flex: 1; border-radius: 8px; padding: 6px 8px; }
+    .pt-name { font-size: 10px; font-weight: 700; margin-bottom: 2px; opacity: 0.8; }
+    .pt-time { font-size: 16px; font-weight: 700; font-variant-numeric: tabular-nums; }
+
+    /* slider */
+    input[type=range] { -webkit-appearance: none; width: 100%; height: 28px; background: transparent; cursor: pointer; margin: 0; }
+    input[type=range]::-webkit-slider-runnable-track { height: 5px; border-radius: 3px; background: #e5e5ea; }
+    input[type=range].run-slider::-webkit-slider-runnable-track  { background: #cce4ff; }
+    input[type=range].zone-slider::-webkit-slider-runnable-track { background: #d4edba; }
+    input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 26px; height: 26px; border-radius: 50%; background: #fff; border: none; box-shadow: 0 2px 6px rgba(0,0,0,0.25); margin-top: -10.5px; }
+    input[type=range]:disabled::-webkit-slider-thumb { background: #d1d1d6; box-shadow: none; }
+    input[type=range]:disabled::-webkit-slider-runnable-track { background: #e5e5ea; }
+
+    /* ── Assign row (partner run) ── */
+    .assign-row { display: flex; gap: 6px; margin-bottom: 6px; flex-wrap: wrap; }
+    .assign-btn {
+      flex: 1; min-width: 60px; padding: 6px 4px; border-radius: 8px;
+      border: 2px solid #e5e5ea; background: #f2f2f7;
+      font-size: 12px; font-weight: 700; color: #6c6c70; cursor: pointer;
+      text-align: center; transition: all 0.15s; white-space: nowrap;
+    }
+    .assign-btn.active { border-color: transparent; color: #fff; }
+
+    /* ── Zone transition panel ── */
+    .transition-panel { margin-top: 8px; background: #f2f2f7; border-radius: 10px; padding: 10px 12px; }
+    .tp-hdr { font-size: 12px; font-weight: 700; color: #6c6c70; margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between; }
+    .tp-mode-row { display: flex; gap: 6px; margin-bottom: 8px; }
+    .tp-mode-btn { flex: 1; padding: 6px 4px; border-radius: 7px; border: 1.5px solid #d1d1d6; background: #fff; font-size: 12px; font-weight: 600; color: #6c6c70; cursor: pointer; text-align: center; transition: all 0.15s; }
+    .tp-mode-btn.active { border-color: #007aff; color: #007aff; background: #e8f2ff; }
+    .tp-splits { display: flex; flex-direction: column; gap: 7px; }
+    .tp-split-row { display: flex; align-items: center; gap: 6px; }
+    .tp-split-label { font-size: 12px; font-weight: 600; min-width: 28px; }
+    .tp-split-val { font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; min-width: 36px; text-align: right; }
+    .tp-unit { font-size: 11px; color: #6c6c70; }
+    .tp-total { font-size: 11px; color: #6c6c70; margin-top: 4px; text-align: right; }
+    .tp-athlete-btn { touch-action: manipulation; }
+
+    /* ── Sticky total bar ── */
+    .total-bar {
+      position: fixed; bottom: 0; left: 0; right: 0;
+      background: #1c1c1e; color: #fff;
+      padding: 10px 16px calc(10px + env(safe-area-inset-bottom, 0px));
+      z-index: 100;
+    }
+    .total-bar-inner { display: flex; justify-content: space-between; align-items: flex-start; max-width: 600px; margin: 0 auto; }
+    .total-col { }
+    .total-label { font-size: 10px; color: #8e8e93; margin-bottom: 1px; }
+    .total-time { font-size: 26px; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -0.5px; line-height: 1; }
+    .total-time .t-dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 4px; vertical-align: middle; }
+    .total-sub { font-size: 11px; color: #8e8e93; margin-top: 2px; }
+    .pace-badge { display: inline-block; padding: 4px 10px; border-radius: 16px; font-size: 12px; font-weight: 700; margin-top: 2px; }
+    .badge-elite       { background: #248a00; }
+    .badge-competitive { background: #0071e3; }
+    .badge-open        { background: #d97706; }
+    .badge-finisher    { background: #6c6c70; }
+
+    /* partner total bar layout */
+    .total-bar-partner { display: flex; gap: 8px; align-items: flex-start; }
+    .total-partner-col { flex: 1; }
+    .total-divider { width: 1px; background: #3a3a3c; flex-shrink: 0; align-self: stretch; margin: 2px 0; }
+
+    .footer { text-align: center; font-size: 11px; color: #aeaeb2; padding: 6px 0 4px; }
+
+    .hidden { display: none !important; }
+
+    /* ── Print details modal ── */
+    .modal-backdrop {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.45);
+      z-index: 200; display: flex; align-items: center; justify-content: center;
+      padding: 16px;
+    }
+    .modal {
+      background: #fff; border-radius: 16px; width: 100%; max-width: 360px;
+      padding: 20px; box-shadow: 0 8px 40px rgba(0,0,0,0.25);
+    }
+    .modal h2 { font-size: 16px; font-weight: 700; margin-bottom: 4px; }
+    .modal .modal-sub { font-size: 13px; color: #6c6c70; margin-bottom: 16px; }
+    .modal-type-row { display: flex; gap: 8px; margin-bottom: 16px; }
+    .modal-type-btn {
+      flex: 1; padding: 12px 0; border-radius: 10px; border: 2px solid #e5e5ea;
+      background: #f2f2f7; font-size: 15px; font-weight: 700; color: #6c6c70;
+      cursor: pointer; text-align: center; transition: all 0.15s;
+    }
+    .modal-type-btn.active { border-color: #007aff; color: #007aff; background: #e8f2ff; }
+    .modal-fields { display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px; }
+    .modal-field label { font-size: 12px; font-weight: 600; color: #6c6c70; display: block; margin-bottom: 3px; }
+    .modal-field input {
+      width: 100%; padding: 9px 12px; border: 1.5px solid #d1d1d6; border-radius: 8px;
+      font-size: 14px; color: #1c1c1e; outline: none; background: #f2f2f7;
+    }
+    .modal-field input:focus { border-color: #007aff; background: #fff; }
+    .modal-actions { display: flex; gap: 8px; }
+    .modal-cancel {
+      flex: 1; padding: 11px 0; border-radius: 10px; border: 1.5px solid #d1d1d6;
+      background: #f2f2f7; font-size: 14px; font-weight: 600; color: #6c6c70; cursor: pointer;
+    }
+    .modal-confirm {
+      flex: 2; padding: 11px 0; border-radius: 10px; border: none;
+      background: #1c1c1e; font-size: 14px; font-weight: 700; color: #fff; cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+
+  <h1>🏃 Deka Mile Tracker</h1>
+  <p class="subtitle">Plan and record your splits — solo or with a partner.</p>
+
+  <!-- ── Race mode ── -->
+  <div class="mode-row">
+    <button class="mode-btn active" id="btn-solo" onclick="setMode('solo')">🧍 Solo Race</button>
+    <button class="mode-btn" id="btn-partner" onclick="setMode('partner')">👥 Partner Race</button>
+  </div>
+
+  <!-- ── Competitor setup (partner only) ── -->
+  <div class="card hidden" id="competitor-card">
+    <div style="font-size:13px;font-weight:700;color:#6c6c70;letter-spacing:0.05em;text-transform:uppercase;margin-bottom:10px;">Competitors</div>
+    <div class="competitor-row">
+      <input type="color" class="color-swatch" id="color-a" value="#0071e3" oninput="onCompetitorChange()">
+      <input class="name-input" id="name-a" type="text" value="Athlete A" oninput="onCompetitorChange()" placeholder="Name">
+      <span class="competitor-label" id="label-a" style="background:#0071e3">A</span>
+    </div>
+    <div class="competitor-row">
+      <input type="color" class="color-swatch" id="color-b" value="#e3460e" oninput="onCompetitorChange()">
+      <input class="name-input" id="name-b" type="text" value="Athlete B" oninput="onCompetitorChange()" placeholder="Name">
+      <span class="competitor-label" id="label-b" style="background:#e3460e">B</span>
+    </div>
+  </div>
+
+  <!-- ── Summary ── -->
+  <div class="summary-grid solo" id="summary-grid">
+    <div class="metric"><div class="metric-label">Run time</div><div class="metric-value" id="s-run">—</div></div>
+    <div class="metric"><div class="metric-label">Zone time</div><div class="metric-value" id="s-zone">—</div></div>
+    <div class="metric"><div class="metric-label">Avg / seg</div><div class="metric-value" id="s-avg">—</div></div>
+  </div>
+
+  <!-- ── Chart ── -->
+  <div class="legend" id="chart-legend">
+    <span><span class="legend-sq" style="background:#378ADD"></span>Run</span>
+    <span><span class="legend-sq" style="background:#639922"></span>Zone</span>
+  </div>
+  <div class="chart-wrap"><canvas id="splitChart"></canvas></div>
+
+  <!-- ── Lock runs ── -->
+  <div class="card">
+    <div class="lock-row-1">
+      <span class="toggle-label">Lock all runs to same time</span>
+      <label class="toggle">
+        <input type="checkbox" id="lock-toggle" onchange="onLockToggle()">
+        <span class="toggle-track"></span>
+      </label>
+    </div>
+    <div class="lock-row-2" id="lock-input-wrap">
+      <label for="lock-val">Seconds per run:</label>
+      <input type="number" class="num-input" id="lock-val" min="15" max="180" value="55"
+             inputmode="numeric" pattern="[0-9]*" oninput="onLockValueChange()">
+      <span class="lock-hint" id="lock-hint"></span>
+    </div>
+  </div>
+
+  <!-- ── Segment list ── -->
+  <div class="seg-list" id="seg-list"></div>
+
+  <div class="footer">Deka Mile · 10 zones + 10 × 160m runs · Spartan DEKA</div>
+  <div style="text-align:center;margin-top:10px;padding-bottom:4px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">
+    <button id="shade-btn" onclick="toggleRunShading()"
+      style="background:#f2f2f7;color:#1c1c1e;border:2px solid #d1d1d6;border-radius:10px;
+             padding:10px 18px;font-size:14px;font-weight:600;cursor:pointer;">
+      🎨 Shade Runs
+    </button>
+    <button onclick="openModal()"
+      style="background:#1c1c1e;color:#fff;border:none;border-radius:10px;
+             padding:10px 18px;font-size:14px;font-weight:600;cursor:pointer;">
+      🖨️ Print Race Card
+    </button>
+  </div>
+
+<!-- ── Print details modal ── -->
+<div class="modal-backdrop hidden" id="print-modal">
+  <div class="modal">
+    <h2>🖨️ Print Race Card</h2>
+    <p class="modal-sub">What is this printout for?</p>
+    <div class="modal-type-row">
+      <button class="modal-type-btn active" id="type-test" onclick="setModalType('test')">🧪 Test / Training</button>
+      <button class="modal-type-btn" id="type-race" onclick="setModalType('race')">🏆 Race</button>
+    </div>
+    <div class="modal-fields hidden" id="race-fields">
+      <div class="modal-field">
+        <label>Venue</label>
+        <input type="text" id="race-venue" placeholder="e.g. Boston Spartan Stadium">
+      </div>
+      <div class="modal-field">
+        <label>Date</label>
+        <input type="date" id="race-date">
+      </div>
+      <div class="modal-field">
+        <label>Start Time</label>
+        <input type="time" id="race-time">
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="modal-cancel" onclick="closeModal()">Cancel</button>
+      <button class="modal-confirm" onclick="confirmPrint()">Print →</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Sticky total bar ── -->
+<div class="total-bar" id="total-bar">
+  <!-- filled by JS -->
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════
+   DATA
+═══════════════════════════════════════════════ */
+const SEGMENTS = [
+  { label:'Run 1',   sub:'160m run',                       type:'run',  def:50  },
+  { label:'Zone 1',  sub:'RAM reverse lunges — 30 reps',   type:'zone', def:75,
+    zCfg:{ modes:['split-reps'],          unit:'reps', cap:30,  step:1,  maxTrans:2 } },
+  { label:'Run 2',   sub:'160m run',                       type:'run',  def:52  },
+  { label:'Zone 2',  sub:'500m row erg',                   type:'zone', def:105,
+    zCfg:{ modes:['split-meters','split-time'], unit:'m',    cap:500, step:10, maxTrans:5 } },
+  { label:'Run 3',   sub:'160m run',                       type:'run',  def:54  },
+  { label:'Zone 3',  sub:'Box jump/step overs — 20 reps',  type:'zone', def:55,
+    zCfg:{ modes:['split-reps'],          unit:'reps', cap:20,  step:1,  maxTrans:2 } },
+  { label:'Run 4',   sub:'160m run',                       type:'run',  def:55  },
+  { label:'Zone 4',  sub:'Med ball sit-ups — 25 reps',     type:'zone', def:60,
+    zCfg:{ modes:['split-reps'],          unit:'reps', cap:25,  step:1,  maxTrans:2 } },
+  { label:'Run 5',   sub:'160m run',                       type:'run',  def:56  },
+  { label:'Zone 5',  sub:'500m SkiErg',                    type:'zone', def:115,
+    zCfg:{ modes:['split-meters','split-time'], unit:'m',    cap:500, step:10, maxTrans:5 } },
+  { label:'Run 6',   sub:'160m run',                       type:'run',  def:58  },
+  { label:'Zone 6',  sub:'Farmers carry — 100m',           type:'zone', def:65,
+    zCfg:{ modes:['split-meters'],        unit:'m',    cap:100, step:20, maxTrans:3 } },
+  { label:'Run 7',   sub:'160m run',                       type:'run',  def:60  },
+  { label:'Zone 7',  sub:'Air bike — 25 calories',         type:'zone', def:75,
+    zCfg:{ modes:['split-reps'],          unit:'cal',  cap:25,  step:1,  maxTrans:3 } },
+  { label:'Run 8',   sub:'160m run',                       type:'run',  def:62  },
+  { label:'Zone 8',  sub:'Dead ball shoulder overs — 20',  type:'zone', def:70,
+    zCfg:{ modes:['split-reps'],          unit:'reps', cap:20,  step:1,  maxTrans:3 } },
+  { label:'Run 9',   sub:'160m run',                       type:'run',  def:64  },
+  { label:'Zone 9',  sub:'Tank push/pull — 100m',          type:'zone', def:90,
+    zCfg:{ modes:['split-meters'],        unit:'m',    cap:100, step:20, maxTrans:2 } },
+  { label:'Run 10',  sub:'160m run',                       type:'run',  def:66  },
+  { label:'Zone 10', sub:'RAM burpees — 20 reps',          type:'zone', def:80,
+    zCfg:{ modes:['split-reps'],          unit:'reps', cap:20,  step:1,  maxTrans:6 } },
+];
+
+/* solo times */
+const times = SEGMENTS.map(s => s.def);
+
+/* partner state per segment
+   run:  { assignee: 'a'|'b'|'both', timeA, timeB }
+   zone: { transMode: string, turns: [{athlete:'a'|'b', value:number}] }
+*/
+function defaultZoneTurns(seg) {
+  const cfg = seg.zCfg;
+  const half = Math.floor(cfg.cap / 2 / cfg.step) * cfg.step;
+  return [
+    { athlete: 'a', value: half },
+    { athlete: 'b', value: cfg.cap - half },
+  ];
+}
+const pState = SEGMENTS.map((s, i) => {
+  if (s.type === 'run') {
+    const defaultAsgn = (i === 0 || i === 18) ? 'both' : 'a';
+    return { assignee: defaultAsgn, timeA: s.def, timeB: s.def };
+  } else {
+    return {
+      transMode: s.zCfg.modes[0],
+      turns: defaultZoneTurns(s),
+    };
+  }
+});
+
+/* competitors */
+let competitors = {
+  a: { name: 'Athlete A', color: '#0071e3' },
+  b: { name: 'Athlete B', color: '#e3460e' },
+};
+
+let mode = 'solo'; // 'solo' | 'partner'
+
+/* ═══════════════════════════════════════════════
+   FORMATTING
+═══════════════════════════════════════════════ */
+function fmtSec(s) { s = Math.round(s); return Math.floor(s/60)+':'+String(s%60).padStart(2,'0'); }
+function fmtTotal(s) {
+  s = Math.round(s);
+  const h=Math.floor(s/3600), m=Math.floor((s%3600)/60), sec=s%60;
+  return String(h).padStart(2,'0')+':'+String(m).padStart(2,'0')+':'+String(sec).padStart(2,'0');
+}
+
+/* ═══════════════════════════════════════════════
+   MODE SWITCH
+═══════════════════════════════════════════════ */
+function setMode(m) {
+  mode = m;
+  document.getElementById('btn-solo').classList.toggle('active', m==='solo');
+  document.getElementById('btn-partner').classList.toggle('active', m==='partner');
+  document.getElementById('competitor-card').classList.toggle('hidden', m==='solo');
+
+  const grid = document.getElementById('summary-grid');
+  grid.className = 'summary-grid ' + m;
+
+  rebuildSummaryGrid();
+  rebuildSegList();
+  recalc();
+}
+
+/* ═══════════════════════════════════════════════
+   COMPETITOR CHANGE
+═══════════════════════════════════════════════ */
+function onCompetitorChange() {
+  competitors.a.name  = document.getElementById('name-a').value || 'A';
+  competitors.a.color = document.getElementById('color-a').value;
+  competitors.b.name  = document.getElementById('name-b').value || 'B';
+  competitors.b.color = document.getElementById('color-b').value;
+
+  document.getElementById('label-a').style.background = competitors.a.color;
+  document.getElementById('label-b').style.background = competitors.b.color;
+
+  rebuildSummaryGrid();
+  rebuildSegList();
+  recalc();
+}
+
+/* ═══════════════════════════════════════════════
+   SUMMARY GRID
+═══════════════════════════════════════════════ */
+function rebuildSummaryGrid() {
+  const grid = document.getElementById('summary-grid');
+  if (mode === 'solo') {
+    grid.innerHTML = `
+      <div class="metric"><div class="metric-label">Run time</div><div class="metric-value" id="s-run">—</div></div>
+      <div class="metric"><div class="metric-label">Zone time</div><div class="metric-value" id="s-zone">—</div></div>
+      <div class="metric"><div class="metric-label">Avg / seg</div><div class="metric-value" id="s-avg">—</div></div>`;
+  } else {
+    grid.innerHTML = `
+      <div class="metric"><div class="metric-label">Run time</div><div class="metric-value" id="s-run">—</div></div>
+      <div class="metric"><div class="metric-label">Zone time</div><div class="metric-value" id="s-zone">—</div></div>
+      <div class="metric"><div class="metric-label">Avg / seg</div><div class="metric-value" id="s-avg">—</div></div>`;
+  }
+}
+
+/* ═══════════════════════════════════════════════
+   LOCK ALL RUNS
+═══════════════════════════════════════════════ */
+function onLockToggle() {
+  const locked = document.getElementById('lock-toggle').checked;
+  document.getElementById('lock-input-wrap').classList.toggle('active', locked);
+  if (locked) applyLockValue();
+  updateLockHint();
+  rebuildSegList();
+  recalc();
+}
+function onLockValueChange() {
+  if (document.getElementById('lock-toggle').checked) applyLockValue();
+  updateLockHint();
+}
+function applyLockValue() {
+  let val = parseInt(document.getElementById('lock-val').value);
+  if (isNaN(val)) return;
+  val = Math.max(15, Math.min(180, val));
+  SEGMENTS.forEach((seg, i) => {
+    if (seg.type !== 'run') return;
+    times[i] = val;
+    pState[i].timeA = val;
+    pState[i].timeB = val;
+  });
+  recalc();
+}
+function updateLockHint() {
+  const locked = document.getElementById('lock-toggle').checked;
+  const hint = document.getElementById('lock-hint');
+  if (locked) {
+    const val = parseInt(document.getElementById('lock-val').value) || 0;
+    hint.textContent = '= ' + fmtSec(val * 10) + ' run total';
+  } else { hint.textContent = ''; }
+}
+
+/* ═══════════════════════════════════════════════
+   SEGMENT LIST BUILDER
+═══════════════════════════════════════════════ */
+function rebuildSegList() {
+  const list = document.getElementById('seg-list');
+  list.innerHTML = '';
+  if (shadingOn) list.classList.add('shade-runs');
+  const locked = document.getElementById('lock-toggle').checked;
+
+  SEGMENTS.forEach((seg, i) => {
+    const zoneNum = seg.type==='zone' ? Math.ceil(i/2) : null;
+    const tagTxt  = seg.type==='run' ? 'RUN' : 'ZONE '+zoneNum;
+    const tagCls  = seg.type==='run' ? 'tag-run' : 'tag-zone';
+    const slCls   = seg.type==='run' ? 'run-slider' : 'zone-slider';
+    const maxVal  = seg.type==='run' ? 180 : 480;
+    const stepVal = seg.type==='run' ? 1 : 1;
+    const minVal  = seg.type==='run' ? 15 : 30;
+
+    const row = document.createElement('div');
+    row.className = 'seg-row' + (seg.type === 'run' ? ' is-run' : '');
+    row.id = 'row-'+i;
+
+    if (mode === 'solo') {
+      row.innerHTML = `
+        <div class="seg-top">
+          <div class="seg-left">
+            <span class="tag ${tagCls}">${tagTxt}</span>
+            <span class="seg-name">${seg.label}</span>
+          </div>
+          <div class="seg-time" id="tv-${i}">${fmtSec(times[i])}</div>
+        </div>
+        <div class="seg-sub">${seg.sub}</div>
+        <input type="range" class="${slCls}" min="${minVal}" max="${maxVal}" step="${stepVal}"
+               value="${times[i]}" id="sl-${i}" ${locked && seg.type==='run' ? 'disabled' : ''}
+               oninput="onSliderSolo(${i})">`;
+    } else {
+      // Partner mode
+      if (seg.type === 'run') {
+        row.innerHTML = buildPartnerRunRow(i, seg, tagTxt, tagCls, locked);
+      } else {
+        row.innerHTML = buildPartnerZoneRow(i, seg, tagTxt, tagCls);
+      }
+    }
+
+    list.appendChild(row);
+  });
+}
+
+function buildPartnerRunRow(i, seg, tagTxt, tagCls, locked) {
+  const ps = pState[i];
+  const ca = competitors.a, cb = competitors.b;
+  const asgn = ps.assignee;
+
+  // Run 1 (index 0): always Both, no buttons
+  // Runs 2–9 (index 2,4,6,8,10,12,14,16): only A or B, no Both button
+  // Run 10 (index 18): always Both, no buttons (same as Run 1)
+  const isRun1  = (i === 0);
+  const isRun10 = (i === 18);
+  const isBothFixed = isRun1 || isRun10;
+
+  let assignButtons = '';
+  if (isBothFixed) {
+    assignButtons = `<div style="font-size:10px;color:#6c6c70;margin-bottom:6px;">Both athletes run together</div>`;
+    if (ps.assignee !== 'both') ps.assignee = 'both';
+  } else {
+    // Only A or B
+    assignButtons = `<div class="assign-row">
+      ${buildAssignBtn(i, 'a', ca)}
+      ${buildAssignBtn(i, 'b', cb)}
+    </div>`;
+  }
+
+  // Effective assignee for slider display
+  const effectiveAsgn = isBothFixed ? 'both' : ps.assignee;
+
+  let sliderHtml = '';
+  if (effectiveAsgn === 'both') {
+    sliderHtml = `
+      <div style="font-size:10px;font-weight:700;color:#555;margin-bottom:0;">Both</div>
+      <input type="range" class="run-slider" min="15" max="180" step="1"
+             value="${ps.timeA}" id="sl-${i}-both" ${locked?'disabled':''}
+             oninput="onSliderPartnerRunBoth(${i})">
+      <div style="text-align:right;font-size:12px;font-weight:700;color:#555;margin-top:-4px;"
+           id="tv-${i}-both">${fmtSec(ps.timeA)}</div>`;
+  } else if (effectiveAsgn === 'a') {
+    sliderHtml = `
+      <div style="font-size:10px;font-weight:700;color:${ca.color};margin-bottom:0;">${ca.name}</div>
+      <input type="range" class="run-slider" min="15" max="180" step="1"
+             value="${ps.timeA}" id="sl-${i}-a" ${locked?'disabled':''}
+             oninput="onSliderPartnerRun(${i},'a')">
+      <div style="text-align:right;font-size:12px;font-weight:700;color:${ca.color};margin-top:-4px;"
+           id="tv-${i}-a">${fmtSec(ps.timeA)}</div>`;
+  } else {
+    sliderHtml = `
+      <div style="font-size:10px;font-weight:700;color:${cb.color};margin-bottom:0;">${cb.name}</div>
+      <input type="range" class="run-slider" min="15" max="180" step="1"
+             value="${ps.timeB}" id="sl-${i}-b" ${locked?'disabled':''}
+             oninput="onSliderPartnerRun(${i},'b')">
+      <div style="text-align:right;font-size:12px;font-weight:700;color:${cb.color};margin-top:-4px;"
+           id="tv-${i}-b">${fmtSec(ps.timeB)}</div>`;
+  }
+
+  return `
+    <div class="seg-top">
+      <div class="seg-left">
+        <span class="tag ${tagCls}">${tagTxt}</span>
+        <span class="seg-name">${seg.label}</span>
+      </div>
+    </div>
+    <div class="seg-sub">${seg.sub}</div>
+    ${assignButtons}
+    ${sliderHtml}`;
+}
+
+function buildAssignBtn(i, which, comp) {
+  const ps = pState[i];
+  const active = ps.assignee === which;
+  let label, bg;
+  if (which === 'both') { label = 'Both'; bg = active ? '#555' : ''; }
+  else { label = comp.name; bg = active ? comp.color : ''; }
+  const style = active ? `background:${bg};border-color:${bg};` : '';
+  return `<button class="assign-btn ${active?'active':''}" style="${style}"
+    onclick="setRunAssignee(${i},'${which}')">${label}</button>`;
+}
+
+function buildPartnerZoneRow(i, seg, tagTxt, tagCls) {
+  const ps = pState[i];
+  const cfg = seg.zCfg;
+  const isTime = ps.transMode === 'split-time';
+  const isMeters = ps.transMode === 'split-meters';
+  const isCapped = !isTime; // reps/meters/cal all have a cap
+
+  const unit = isTime ? 'sec' : cfg.unit;
+  const cap  = cfg.cap;
+  const step = isTime ? 5 : cfg.step;
+  const maxVal = isTime ? 240 : cap;
+
+  const turns = ps.turns;
+  const usedTotal = turns.reduce((s, t) => s + t.value, 0);
+  const remaining = cap - usedTotal;
+
+  // Mode buttons
+  const modeButtons = cfg.modes.length > 1 ? `
+    <div class="tp-mode-row">
+      ${cfg.modes.map(m => {
+        const label = m === 'split-reps'   ? 'Split Reps'
+                    : m === 'split-meters' ? 'Split Meters'
+                    : m === 'split-time'   ? 'Split Time' : m;
+        return `<button class="tp-mode-btn ${ps.transMode===m?'active':''}"
+                  onclick="setZoneTransMode(${i},'${m}')">${label}</button>`;
+      }).join('')}
+    </div>` : '';
+
+  // Turn rows
+  const turnRows = turns.map((t, ti) => {
+    const comp = competitors[t.athlete];
+    const otherKey = t.athlete === 'a' ? 'b' : 'a';
+    const maxTurnVal = isCapped ? Math.min(cap, t.value + remaining) : maxVal;
+    const sfx = isTime ? 's' : '';
+    return `
+      <div class="tp-split-row" id="trow-${i}-${ti}">
+        <button class="tp-athlete-btn" style="background:${comp.color};color:#fff;border:none;border-radius:6px;
+                font-size:10px;font-weight:700;padding:3px 7px;cursor:pointer;white-space:nowrap;flex-shrink:0;"
+                onclick="toggleTurnAthlete(${i},${ti})">${comp.name}</button>
+        <input type="range" style="flex:1;height:22px;" min="0" max="${maxTurnVal}" step="${step}"
+               value="${t.value}" id="tsl-${i}-${ti}"
+               oninput="onTurnSlider(${i},${ti})">
+        <span class="tp-split-val" id="tsv-${i}-${ti}" style="color:${comp.color};min-width:36px;text-align:right;">
+          ${t.value}${sfx}
+        </span>
+        <span class="tp-unit" style="min-width:24px">${unit}</span>
+        ${turns.length > 1 ? `<button onclick="removeTurn(${i},${ti})" style="background:none;border:none;
+          color:#c00;font-size:16px;cursor:pointer;padding:0 2px;line-height:1;flex-shrink:0;">×</button>` : ''}
+      </div>`;
+  }).join('');
+
+  // Total / remaining line
+  const totalLine = isCapped
+    ? `<div class="tp-total" id="tp-total-${i}">
+        Used: ${usedTotal} / ${cap} ${unit}
+        ${usedTotal < cap ? `<span style="color:#c44"> — ${remaining} ${unit} unassigned</span>` : ''}
+        ${usedTotal > cap ? `<span style="color:#c44"> — ${usedTotal - cap} ${unit} over cap!</span>` : ''}
+       </div>`
+    : `<div class="tp-total" id="tp-total-${i}">${fmtSec(usedTotal)} total</div>`;
+
+  // Add transition button
+  const canAdd = turns.length < cfg.maxTrans && (isTime || usedTotal < cap);
+  const addBtn = canAdd
+    ? `<button onclick="addTurn(${i})" style="margin-top:6px;background:none;border:1.5px dashed #c0c0c8;
+        border-radius:7px;width:100%;padding:5px;font-size:12px;color:#6c6c70;cursor:pointer;">
+        + Add transition (${turns.length}/${cfg.maxTrans})
+       </button>` : `<div style="font-size:10px;color:#aeaeb2;margin-top:5px;text-align:center;">
+        Max ${cfg.maxTrans} transitions reached</div>`;
+
+  const zoneTime = isTime ? usedTotal : times[i];
+
+  return `
+    <div class="seg-top">
+      <div class="seg-left">
+        <span class="tag ${tagCls}">${tagTxt}</span>
+        <span class="seg-name">${seg.label}</span>
+      </div>
+      <div class="seg-time" id="tv-${i}">${fmtSec(zoneTime)}</div>
+    </div>
+    <div class="seg-sub">${seg.sub}</div>
+    <input type="range" class="zone-slider" min="30" max="480" step="1"
+           value="${times[i]}" id="sl-${i}" oninput="onSliderSolo(${i})">
+    <div class="transition-panel">
+      <div class="tp-hdr"><span>⇄ Transitions</span></div>
+      ${modeButtons}
+      <div class="tp-splits" id="tturns-${i}">${turnRows}</div>
+      ${totalLine}
+      ${addBtn}
+    </div>`;
+}
+
+/* ═══════════════════════════════════════════════
+   EVENT HANDLERS
+═══════════════════════════════════════════════ */
+function onSliderSolo(i) {
+  times[i] = parseInt(document.getElementById('sl-'+i).value);
+  const tv = document.getElementById('tv-'+i);
+  if (tv) tv.textContent = fmtSec(times[i]);
+  recalc();
+}
+
+function onSliderPartnerRun(i, which) {
+  const val = parseInt(document.getElementById('sl-'+i+'-'+which).value);
+  pState[i]['time'+which.toUpperCase()] = val;
+  const tv = document.getElementById('tv-'+i+'-'+which);
+  if (tv) tv.textContent = fmtSec(val);
+  recalc();
+}
+
+function onSliderPartnerRunBoth(i) {
+  const val = parseInt(document.getElementById('sl-'+i+'-both').value);
+  pState[i].timeA = val;
+  pState[i].timeB = val;
+  const tv = document.getElementById('tv-'+i+'-both');
+  if (tv) tv.textContent = fmtSec(val);
+  recalc();
+}
+
+function setRunAssignee(i, which) {
+  pState[i].assignee = which;
+  // rebuild just this row
+  const row = document.getElementById('row-'+i);
+  const locked = document.getElementById('lock-toggle').checked;
+  row.innerHTML = buildPartnerRunRow(i, SEGMENTS[i], SEGMENTS[i].type==='run'?'RUN':'', 'tag-run', locked);
+  recalc();
+}
+
+function toggleZoneP1(i) {
+  // Legacy — no longer used but keep to avoid errors
+}
+
+function setZoneTransMode(i, m) {
+  const ps = pState[i];
+  const seg = SEGMENTS[i];
+  ps.transMode = m;
+  // Reset turns to defaults when switching mode
+  ps.turns = defaultZoneTurns(seg);
+  rebuildZoneRow(i);
+  recalc();
+}
+
+function toggleTurnAthlete(i, ti) {
+  const t = pState[i].turns[ti];
+  t.athlete = t.athlete === 'a' ? 'b' : 'a';
+  rebuildZoneRow(i);
+  recalc();
+}
+
+function onTurnSlider(i, ti) {
+  const ps = pState[i];
+  const cfg = SEGMENTS[i].zCfg;
+  const isTime = ps.transMode === 'split-time';
+  const val = parseInt(document.getElementById('tsl-'+i+'-'+ti).value);
+  ps.turns[ti].value = val;
+
+  // Clamp total to cap if applicable
+  if (!isTime) {
+    const total = ps.turns.reduce((s,t) => s+t.value, 0);
+    if (total > cfg.cap) {
+      // Trim this turn back
+      const over = total - cfg.cap;
+      ps.turns[ti].value = Math.max(0, val - over);
+      document.getElementById('tsl-'+i+'-'+ti).value = ps.turns[ti].value;
+    }
+  }
+
+  rebuildZoneRow(i);
+  if (isTime) {
+    times[i] = ps.turns.reduce((s,t)=>s+t.value,0);
+    const tv = document.getElementById('tv-'+i);
+    if (tv) tv.textContent = fmtSec(times[i]);
+  }
+  recalc();
+}
+
+function addTurn(i) {
+  const ps = pState[i];
+  const cfg = SEGMENTS[i].zCfg;
+  const isTime = ps.transMode === 'split-time';
+  const used = ps.turns.reduce((s,t)=>s+t.value,0);
+  const remaining = isTime ? 0 : cfg.cap - used;
+  // Alternate athlete from last turn
+  const lastAthlete = ps.turns[ps.turns.length-1].athlete;
+  const nextAthlete = lastAthlete === 'a' ? 'b' : 'a';
+  const defVal = isTime ? cfg.step : Math.min(remaining, cfg.step);
+  ps.turns.push({ athlete: nextAthlete, value: defVal });
+  rebuildZoneRow(i);
+  recalc();
+}
+
+function removeTurn(i, ti) {
+  pState[i].turns.splice(ti, 1);
+  rebuildZoneRow(i);
+  recalc();
+}
+
+function onTransSlider(i, which) {
+  // Legacy shim — no longer called but kept for safety
+}
+
+function rebuildZoneRow(i) {
+  const seg = SEGMENTS[i];
+  const zoneNum = Math.ceil(i/2);
+  const row = document.getElementById('row-'+i);
+  row.innerHTML = buildPartnerZoneRow(i, seg, 'ZONE '+zoneNum, 'tag-zone');
+}
+
+/* ═══════════════════════════════════════════════
+   RECALC
+═══════════════════════════════════════════════ */
+function recalc() {
+  if (mode === 'solo') {
+    recalcSolo();
+  } else {
+    recalcPartner();
+  }
+  updateChart();
+}
+
+function recalcSolo() {
+  const total     = times.reduce((a,b)=>a+b,0);
+  const runTotal  = times.filter((_,i)=>SEGMENTS[i].type==='run').reduce((a,b)=>a+b,0);
+  const zoneTotal = times.filter((_,i)=>SEGMENTS[i].type==='zone').reduce((a,b)=>a+b,0);
+
+  const sr = document.getElementById('s-run');
+  const sz = document.getElementById('s-zone');
+  const sa = document.getElementById('s-avg');
+  if (sr) sr.textContent = fmtSec(runTotal);
+  if (sz) sz.textContent = fmtSec(zoneTotal);
+  if (sa) sa.textContent = fmtSec(Math.round(total/20));
+
+  renderSoloTotalBar(total);
+}
+
+function recalcPartner() {
+  let runTotal = 0, zoneTotal = 0;
+  let totalA = 0, totalB = 0;
+
+  SEGMENTS.forEach((seg, i) => {
+    if (seg.type === 'run') {
+      const ps = pState[i];
+      const t = ps.assignee === 'b' ? ps.timeB : ps.timeA;
+      runTotal += t;
+      if (ps.assignee === 'a')      { totalA += ps.timeA; }
+      else if (ps.assignee === 'b') { totalB += ps.timeB; }
+      else { totalA += ps.timeA; totalB += ps.timeB; }
+    } else {
+      const ps = pState[i];
+      const isTime = ps.transMode === 'split-time';
+      let segTime;
+      if (isTime) {
+        segTime = ps.turns.reduce((s,t)=>s+t.value, 0);
+        ps.turns.forEach(t => {
+          if (t.athlete === 'a') totalA += t.value;
+          else totalB += t.value;
+        });
+      } else {
+        segTime = times[i];
+        const totalUnits = ps.turns.reduce((s,t)=>s+t.value, 0) || 1;
+        ps.turns.forEach(t => {
+          const frac = t.value / totalUnits;
+          if (t.athlete === 'a') totalA += segTime * frac;
+          else totalB += segTime * frac;
+        });
+      }
+      zoneTotal += segTime;
+    }
+  });
+
+  const combined = totalA + totalB;
+  const wall     = Math.max(totalA, totalB);
+  const total    = runTotal + zoneTotal;
+
+  const sr = document.getElementById('s-run');
+  const sz = document.getElementById('s-zone');
+  const sa = document.getElementById('s-avg');
+  if (sr) sr.textContent = fmtSec(runTotal);
+  if (sz) sz.textContent = fmtSec(zoneTotal);
+  if (sa) sa.textContent = fmtSec(Math.round(total / 20));
+
+  renderPartnerTotalBar(totalA, totalB, combined, wall);
+}
+
+/* ═══════════════════════════════════════════════
+   TOTAL BAR RENDER
+═══════════════════════════════════════════════ */
+function tierBadge(totalSec) {
+  const m = totalSec/60;
+  if (m<=22) return ['⚡ Elite','badge-elite'];
+  if (m<=27) return ['🔥 Competitive','badge-competitive'];
+  if (m<=35) return ['💪 Solid open','badge-open'];
+  return ['🏅 Finisher','badge-finisher'];
+}
+
+function renderSoloTotalBar(total) {
+  const [txt, cls] = tierBadge(total);
+  document.getElementById('total-bar').innerHTML = `
+    <div class="total-bar-inner">
+      <div>
+        <div class="total-label">Total race time</div>
+        <div class="total-time">${fmtTotal(total)}</div>
+      </div>
+      <div style="text-align:right">
+        <div class="total-label">Tier</div>
+        <div class="pace-badge ${cls}">${txt}</div>
+      </div>
+    </div>`;
+}
+
+function renderPartnerTotalBar(tA, tB, combined, wall) {
+  const ca = competitors.a, cb = competitors.b;
+  document.getElementById('total-bar').innerHTML = `
+    <div class="total-bar-inner">
+      <div class="total-partner-col">
+        <div class="total-label" style="color:${ca.color}">${ca.name}</div>
+        <div class="total-time">${fmtTotal(tA)}</div>
+      </div>
+      <div class="total-divider"></div>
+      <div class="total-partner-col">
+        <div class="total-label" style="color:${cb.color}">${cb.name}</div>
+        <div class="total-time">${fmtTotal(tB)}</div>
+      </div>
+      <div class="total-divider"></div>
+      <div class="total-partner-col" style="text-align:right">
+        <div class="total-label">Combined</div>
+        <div class="total-time" style="font-size:16px">${fmtTotal(combined)}</div>
+        <div class="total-sub">Wall: ${fmtTotal(wall)}</div>
+      </div>
+    </div>`;
+}
+
+/* ═══════════════════════════════════════════════
+   CHART
+═══════════════════════════════════════════════ */
+let chartInst = null;
+function updateChart() {
+  if (!chartInst) return;
+  // Always show solo-style: one bar per segment, blue=run green=zone
+  // In partner mode compute the effective total time per segment
+  const data = SEGMENTS.map((s, i) => {
+    if (mode === 'solo') return times[i];
+    const ps = pState[i];
+    if (s.type === 'run') {
+      if (ps.assignee === 'both') return ps.timeA;
+      if (ps.assignee === 'a')    return ps.timeA;
+      return ps.timeB;
+    } else {
+      const total = ps.turns ? ps.turns.reduce((s,t)=>s+t.value,0) : times[i];
+      return ps.transMode === 'split-time' ? total : times[i];
+    }
+  });
+  chartInst.data.datasets = [{
+    label: 'Split (sec)', data,
+    backgroundColor: SEGMENTS.map(s => s.type === 'run' ? '#378ADD' : '#639922'),
+    borderRadius: 3, borderSkipped: false,
+  }];
+  chartInst.update('none');
+}
+
+const labels = SEGMENTS.map(s=>s.label);
+chartInst = new Chart(document.getElementById('splitChart'), {
+  type: 'bar',
+  data: { labels, datasets: [{ label:'Split (sec)', data:[...times], backgroundColor:SEGMENTS.map(s=>s.type==='run'?'#378ADD':'#639922'), borderRadius:3, borderSkipped:false }] },
+  options: {
+    indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+    plugins: { legend:{ display: false }, tooltip:{callbacks:{label:ctx=>'  '+fmtSec(ctx.parsed.x)}} },
+    scales: {
+      x: { stacked:true, ticks:{color:'#6c6c70',font:{size:10},callback:v=>fmtSec(v)}, grid:{color:'rgba(0,0,0,0.05)'} },
+      y: { stacked:true, ticks:{color:'#6c6c70',font:{size:10}}, grid:{display:false} }
+    }
+  }
+});
+
+/* ═══════════════════════════════════════════════
+   PRINT MODAL
+═══════════════════════════════════════════════ */
+let modalType = 'test';
+
+function openModal() {
+  modalType = 'test';
+  document.getElementById('type-test').classList.add('active');
+  document.getElementById('type-race').classList.remove('active');
+  document.getElementById('race-fields').classList.add('hidden');
+  document.getElementById('print-modal').classList.remove('hidden');
+}
+
+function closeModal() {
+  document.getElementById('print-modal').classList.add('hidden');
+}
+
+function setModalType(t) {
+  modalType = t;
+  document.getElementById('type-test').classList.toggle('active', t === 'test');
+  document.getElementById('type-race').classList.toggle('active', t === 'race');
+  document.getElementById('race-fields').classList.toggle('hidden', t === 'test');
+}
+
+function confirmPrint() {
+  let eventDetails = null;
+  if (modalType === 'race') {
+    const venue = document.getElementById('race-venue').value.trim();
+    const date  = document.getElementById('race-date').value;
+    const time  = document.getElementById('race-time').value;
+    const dateStr = date ? new Date(date + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : '';
+    const timeStr = time ? new Date('1970-01-01T' + time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }) : '';
+    eventDetails = { type: 'race', venue, date: dateStr, time: timeStr };
+  } else {
+    eventDetails = { type: 'test' };
+  }
+  closeModal();
+  printRaceCard(eventDetails);
+}
+
+/* ═══════════════════════════════════════════════
+   PRINT RACE CARD
+═══════════════════════════════════════════════ */
+function printRaceCard(eventDetails) {
+  const isPartner = mode === 'partner';
+  const ca = competitors.a, cb = competitors.b;
+
+  // Separate runs and zones
+  const runs  = SEGMENTS.filter(s => s.type === 'run');
+  const zones = SEGMENTS.filter(s => s.type === 'zone');
+
+  function runCell(seg, i) {
+    const segIdx = SEGMENTS.indexOf(seg);
+    const runNum = Math.ceil((segIdx + 1) / 2);
+    let inner = '';
+    if (!isPartner) {
+      inner = `<div class="solo-run">160m</div>`;
+    } else {
+      const ps = pState[segIdx];
+      if (ps.assignee === 'both') {
+        inner = `<span class="chip" style="background:${ca.color}">${ca.name}</span>`
+              + `<span class="chip" style="background:${cb.color}">${cb.name}</span>`;
+      } else {
+        const comp = competitors[ps.assignee];
+        inner = `<span class="chip" style="background:${comp.color}">${comp.name}</span>`;
+      }
+    }
+    return `<div class="cell run-cell">
+              <div class="lbl run-lbl">R${runNum}</div>
+              ${inner}
+            </div>`;
+  }
+
+  function zoneCell(seg, i) {
+    const segIdx  = SEGMENTS.indexOf(seg);
+    const zoneNum = Math.ceil(segIdx / 2);
+    let inner = '';
+    if (!isPartner) {
+      inner = `<div class="solo-sub">${seg.sub}</div>`;
+    } else {
+      const ps   = pState[segIdx];
+      const cfg  = seg.zCfg;
+      const unit = ps.transMode === 'split-time' ? 's' : cfg.unit;
+      inner = ps.turns.map(t => {
+        const comp = competitors[t.athlete];
+        return `<span class="chip" style="background:${comp.color}">${comp.name}<br>${t.value}${unit}</span>`;
+      }).join('');
+    }
+    return `<div class="cell zone-cell">
+              <div class="lbl zone-lbl">Z${zoneNum}</div>
+              ${inner}
+            </div>`;
+  }
+
+  const runCells  = runs.map((s, i)  => runCell(s, i)).join('');
+  const zoneCells = zones.map((s, i) => zoneCell(s, i)).join('');
+
+  // Legend for partner
+  const legend = isPartner ? `
+    <span class="leg"><span class="dot" style="background:${ca.color}"></span>${ca.name}</span>
+    <span class="leg"><span class="dot" style="background:${cb.color}"></span>${cb.name}</span>` : '';
+
+  const now = new Date();
+  const timeStamp = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })
+                       .replace(/:/g, '-').replace(/\s/g, '');
+  const dateStamp = now.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: '2-digit' })
+                       .replace(/\//g, '-');
+  const namesPart = isPartner ? `${ca.name}-${cb.name}` : 'Solo';
+  const docTitle  = `DekaeMile-${namesPart}-${dateStamp}-${timeStamp}`;
+
+  // Event details header line
+  const isRaceEvent = eventDetails && eventDetails.type === 'race';
+  const eventLine = isRaceEvent ? (() => {
+    const parts = [];
+    if (eventDetails.venue) parts.push(eventDetails.venue);
+    if (eventDetails.date)  parts.push(eventDetails.date);
+    if (eventDetails.time)  parts.push(eventDetails.time);
+    return parts.length ? `<div class="event-line">${parts.join(' &nbsp;·&nbsp; ')}</div>` : '';
+  })() : `<div class="event-line" style="color:#888">Training / Test Run</div>`;
+
+  const html = `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>${docTitle}</title>
+<style>
+  @page { size: 5.5in 2.75in; margin: 0.12in 0.14in; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif;
+    font-size: 6.5pt; color: #000; background: #fff;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+    width: 5.22in; height: 2.51in; overflow: hidden;
+  }
+  .header {
+    display: flex; justify-content: space-between; align-items: flex-start;
+    border-bottom: 1pt solid #333; padding-bottom: 2pt; margin-bottom: 3pt;
+  }
+  .header-left { display: flex; flex-direction: column; gap: 1pt; }
+  .title  { font-size: 8pt; font-weight: 800; }
+  .event-line { font-size: 6pt; color: #444; font-weight: 600; }
+  .legends { display: flex; gap: 8pt; align-items: center; }
+  .leg    { display: flex; align-items: center; gap: 2.5pt; font-size: 6pt; font-weight: 700; }
+  .dot    { width: 6pt; height: 6pt; border-radius: 50%; flex-shrink: 0; display: inline-block; }
+  .section-label {
+    font-size: 5pt; font-weight: 800; text-transform: uppercase;
+    letter-spacing: 0.06em; color: #666; margin-bottom: 2pt;
+  }
+  .grid {
+    display: grid; grid-template-columns: repeat(10, 1fr); gap: 1.5pt; margin-bottom: 3pt;
+  }
+  .cell {
+    border: 0.5pt solid #ccc; border-radius: 1.5pt;
+    padding: 2pt 2pt 2pt; overflow: hidden;
+    display: flex; flex-direction: column;
+  }
+  .run-cell  { background: #e8f3ff; min-height: 22pt; }
+  .zone-cell { background: #edf7e2; min-height: 38pt; }
+  .lbl {
+    font-size: 5pt; font-weight: 800; text-transform: uppercase;
+    letter-spacing: 0.03em; margin-bottom: 1.5pt; flex-shrink: 0;
+  }
+  .run-lbl  { color: #0055bb; }
+  .zone-lbl { color: #1a6600; }
+  .solo-run { font-size: 5.5pt; color: #444; }
+  .solo-sub { font-size: 4.5pt; color: #333; line-height: 1.3; }
+  .chip {
+    display: inline-block; border-radius: 1.5pt;
+    padding: 0.5pt 2pt; font-size: 5.5pt; font-weight: 800;
+    color: #fff; margin: 0 1pt 1pt 0; line-height: 1.35;
+    text-align: center; white-space: nowrap;
+  }
+  .footer {
+    font-size: 5pt; color: #999; text-align: center;
+    border-top: 0.5pt solid #ddd; padding-top: 2pt;
+  }
+</style>
+</head>
+<body>
+  <div class="header">
+    <div class="header-left">
+      <div class="title">🏃 Deka Mile &nbsp;·&nbsp; ${isPartner ? 'Partner Race' : 'Solo Race'}</div>
+      ${eventLine}
+    </div>
+    <div class="legends">${legend}</div>
+  </div>
+  <div class="section-label">Runs (160m each)</div>
+  <div class="grid">${runCells}</div>
+  <div class="section-label">Zones</div>
+  <div class="grid">${zoneCells}</div>
+  <div class="footer">Spartan DEKA &nbsp;·&nbsp; 10 zones + 10 × 160m runs</div>
+  <script>window.onload=function(){window.print();window.onafterprint=function(){window.close();};};<\/script>
+</body>
+</html>`;
+
+  const w = window.open('', '_blank', 'width=620,height=380');
+  if (!w) { alert('Please allow pop-ups to print the race card.'); return; }
+  w.document.open();
+  w.document.write(html);
+  w.document.close();
+}
+
+/* ═══════════════════════════════════════════════
+   RUN SHADING TOGGLE
+═══════════════════════════════════════════════ */
+let shadingOn = false;
+function toggleRunShading() {
+  shadingOn = !shadingOn;
+  document.getElementById('seg-list').classList.toggle('shade-runs', shadingOn);
+  const btn = document.getElementById('shade-btn');
+  if (shadingOn) {
+    btn.style.background = '#eef6ff';
+    btn.style.borderColor = '#0071e3';
+    btn.style.color = '#0071e3';
+    btn.textContent = '🎨 Shading On';
+  } else {
+    btn.style.background = '#f2f2f7';
+    btn.style.borderColor = '#d1d1d6';
+    btn.style.color = '#1c1c1e';
+    btn.textContent = '🎨 Shade Runs';
+  }
+}
+
+/* ═══════════════════════════════════════════════
+   INIT
+═══════════════════════════════════════════════ */
+rebuildSegList();
+recalc();
+</script>
+</body>
+</html>
