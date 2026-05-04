@@ -901,16 +901,16 @@ function recalcPartner() {
     }
   });
 
+  // Wall clock = simple sum of all segment times, same logic as solo
+  const wall  = runTotal + zoneTotal;
   const combined = totalA + totalB;
-  const wall     = Math.max(totalA, totalB);
-  const total    = runTotal + zoneTotal;
 
   const sr = document.getElementById('s-run');
   const sz = document.getElementById('s-zone');
   const sa = document.getElementById('s-avg');
   if (sr) sr.textContent = fmtSec(runTotal);
   if (sz) sz.textContent = fmtSec(zoneTotal);
-  if (sa) sa.textContent = fmtSec(Math.round(total / 20));
+  if (sa) sa.textContent = fmtSec(Math.round(wall / 20));
 
   renderPartnerTotalBar(totalA, totalB, combined, wall);
 }
@@ -931,7 +931,7 @@ function renderSoloTotalBar(total) {
   document.getElementById('total-bar').innerHTML = `
     <div class="total-bar-inner">
       <div>
-        <div class="total-label">Total race time</div>
+        <div class="total-label">Race time</div>
         <div class="total-time">${fmtTotal(total)}</div>
       </div>
       <div style="text-align:right">
@@ -942,23 +942,16 @@ function renderSoloTotalBar(total) {
 }
 
 function renderPartnerTotalBar(tA, tB, combined, wall) {
-  const ca = competitors.a, cb = competitors.b;
+  const [txt, cls] = tierBadge(wall);
   document.getElementById('total-bar').innerHTML = `
     <div class="total-bar-inner">
-      <div class="total-partner-col">
-        <div class="total-label" style="color:${ca.color}">${ca.name}</div>
-        <div class="total-time">${fmtTotal(tA)}</div>
+      <div>
+        <div class="total-label">Race time</div>
+        <div class="total-time">${fmtTotal(wall)}</div>
       </div>
-      <div class="total-divider"></div>
-      <div class="total-partner-col">
-        <div class="total-label" style="color:${cb.color}">${cb.name}</div>
-        <div class="total-time">${fmtTotal(tB)}</div>
-      </div>
-      <div class="total-divider"></div>
-      <div class="total-partner-col" style="text-align:right">
-        <div class="total-label">Combined</div>
-        <div class="total-time" style="font-size:16px">${fmtTotal(combined)}</div>
-        <div class="total-sub">Wall: ${fmtTotal(wall)}</div>
+      <div style="text-align:right">
+        <div class="total-label">Tier</div>
+        <div class="pace-badge ${cls}">${txt}</div>
       </div>
     </div>`;
 }
