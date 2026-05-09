@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
-  <title>Deka Fit Tracker</title>
+  <title>Deka Mile Tracker</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -116,6 +116,25 @@
     .tag-zone { background: #e6f4d7; color: #248a00; }
     .seg-name { font-size: 14px; font-weight: 600; }
     .seg-sub  { font-size: 12px; color: #6c6c70; margin-bottom: 5px; }
+
+    /* notes field */
+    .notes-row { display: flex; align-items: flex-start; gap: 8px; margin-top: 6px; }
+    .notes-toggle {
+      flex-shrink: 0; background: none; border: 1.5px solid #d1d1d6; border-radius: 7px;
+      padding: 3px 7px; font-size: 11px; font-weight: 700; color: #6c6c70; cursor: pointer;
+      white-space: nowrap; transition: all 0.15s; line-height: 1.4;
+    }
+    .notes-toggle.has-note { border-color: #007aff; color: #007aff; background: #e8f2ff; }
+    .notes-wrap { flex: 1; display: none; }
+    .notes-wrap.open { display: block; }
+    .notes-textarea {
+      width: 100%; padding: 6px 9px; border: 1.5px solid #d1d1d6; border-radius: 8px;
+      font-size: 12px; color: #1c1c1e; background: #f9f9fb; outline: none;
+      resize: none; line-height: 1.4; font-family: inherit;
+      transition: border-color 0.15s;
+    }
+    .notes-textarea:focus { border-color: #007aff; background: #fff; }
+    .notes-char { font-size: 10px; color: #aeaeb2; text-align: right; margin-top: 2px; }
 
     /* solo time */
     .seg-time { font-size: 19px; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -0.3px; min-width: 44px; text-align: right; }
@@ -230,7 +249,7 @@
 <body>
 <div class="container">
 
-  <h1>🏃 Deka Fit Tracker</h1>
+  <h1>🏃 Deka Mile Tracker</h1>
   <p class="subtitle">Plan and record your splits — solo or with a partner.</p>
 
   <!-- ── Race mode ── -->
@@ -279,7 +298,7 @@
     </div>
     <div class="lock-row-2" id="lock-input-wrap">
       <label for="lock-val">Seconds per run:</label>
-      <input type="number" class="num-input" id="lock-val" min="60" max="480" value="150"
+      <input type="number" class="num-input" id="lock-val" min="15" max="180" value="55"
              inputmode="numeric" pattern="[0-9]*" oninput="onLockValueChange()">
       <span class="lock-hint" id="lock-hint"></span>
     </div>
@@ -288,7 +307,7 @@
   <!-- ── Segment list ── -->
   <div class="seg-list" id="seg-list"></div>
 
-  <div class="footer">Deka Fit · 10 zones + 10 × 500m runs · Spartan DEKA</div>
+  <div class="footer">Deka Mile · 10 zones + 10 × 160m runs · Spartan DEKA</div>
   <div style="text-align:center;margin-top:10px;padding-bottom:4px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">
     <button id="shade-btn" onclick="toggleRunShading()"
       style="background:#f2f2f7;color:#1c1c1e;border:2px solid #d1d1d6;border-radius:10px;
@@ -342,40 +361,41 @@
    DATA
 ═══════════════════════════════════════════════ */
 const SEGMENTS = [
-  { label:'Run 1',   sub:'500m run',                            type:'run',  def:150 },
-  { label:'Zone 1',  sub:'RAM reverse lunges — 30 reps',        type:'zone', def:75,
-    zCfg:{ modes:['split-reps'],               unit:'reps', cap:30,  step:1,  maxTrans:2 } },
-  { label:'Run 2',   sub:'500m run',                            type:'run',  def:155 },
-  { label:'Zone 2',  sub:'500m row erg',                        type:'zone', def:105,
+  { label:'Run 1',   sub:'160m run',                       type:'run',  def:50  },
+  { label:'Zone 1',  sub:'RAM reverse lunges — 30 reps',   type:'zone', def:75,
+    zCfg:{ modes:['split-reps'],          unit:'reps', cap:30,  step:1,  maxTrans:2 } },
+  { label:'Run 2',   sub:'160m run',                       type:'run',  def:52  },
+  { label:'Zone 2',  sub:'500m row erg',                   type:'zone', def:105,
     zCfg:{ modes:['split-meters','split-time'], unit:'m',    cap:500, step:10, maxTrans:5 } },
-  { label:'Run 3',   sub:'500m run',                            type:'run',  def:158 },
-  { label:'Zone 3',  sub:'Box jump/step overs — 20 reps',       type:'zone', def:55,
-    zCfg:{ modes:['split-reps'],               unit:'reps', cap:20,  step:1,  maxTrans:2 } },
-  { label:'Run 4',   sub:'500m run',                            type:'run',  def:160 },
-  { label:'Zone 4',  sub:'Med ball sit-up throws — 25 reps',    type:'zone', def:70,
-    zCfg:{ modes:['split-reps'],               unit:'reps', cap:25,  step:1,  maxTrans:2 } },
-  { label:'Run 5',   sub:'500m run',                            type:'run',  def:162 },
-  { label:'Zone 5',  sub:'500m SkiErg',                         type:'zone', def:115,
+  { label:'Run 3',   sub:'160m run',                       type:'run',  def:54  },
+  { label:'Zone 3',  sub:'Box jump/step overs — 20 reps',  type:'zone', def:55,
+    zCfg:{ modes:['split-reps'],          unit:'reps', cap:20,  step:1,  maxTrans:2 } },
+  { label:'Run 4',   sub:'160m run',                       type:'run',  def:55  },
+  { label:'Zone 4',  sub:'Med ball sit-ups — 25 reps',     type:'zone', def:60,
+    zCfg:{ modes:['split-reps'],          unit:'reps', cap:25,  step:1,  maxTrans:2 } },
+  { label:'Run 5',   sub:'160m run',                       type:'run',  def:56  },
+  { label:'Zone 5',  sub:'500m SkiErg',                    type:'zone', def:115,
     zCfg:{ modes:['split-meters','split-time'], unit:'m',    cap:500, step:10, maxTrans:5 } },
-  { label:'Run 6',   sub:'500m run',                            type:'run',  def:165 },
-  { label:'Zone 6',  sub:'Farmers carry — 100m',                type:'zone', def:65,
-    zCfg:{ modes:['split-meters'],             unit:'m',    cap:100, step:20, maxTrans:3 } },
-  { label:'Run 7',   sub:'500m run',                            type:'run',  def:168 },
-  { label:'Zone 7',  sub:'Air bike — 25 calories',              type:'zone', def:75,
-    zCfg:{ modes:['split-reps'],               unit:'cal',  cap:25,  step:1,  maxTrans:3 } },
-  { label:'Run 8',   sub:'500m run',                            type:'run',  def:170 },
-  { label:'Zone 8',  sub:'Dead ball yoke over — 20 reps',       type:'zone', def:80,
-    zCfg:{ modes:['split-reps'],               unit:'reps', cap:20,  step:1,  maxTrans:3 } },
-  { label:'Run 9',   sub:'500m run',                            type:'run',  def:172 },
-  { label:'Zone 9',  sub:'Tank push/pull — 100m',               type:'zone', def:90,
-    zCfg:{ modes:['split-meters'],             unit:'m',    cap:100, step:20, maxTrans:2 } },
-  { label:'Run 10',  sub:'500m run',                            type:'run',  def:175 },
-  { label:'Zone 10', sub:'RAM burpees — 20 reps',               type:'zone', def:80,
-    zCfg:{ modes:['split-reps'],               unit:'reps', cap:20,  step:1,  maxTrans:6 } },
+  { label:'Run 6',   sub:'160m run',                       type:'run',  def:58  },
+  { label:'Zone 6',  sub:'Farmers carry — 100m',           type:'zone', def:65,
+    zCfg:{ modes:['split-meters'],        unit:'m',    cap:100, step:20, maxTrans:3 } },
+  { label:'Run 7',   sub:'160m run',                       type:'run',  def:60  },
+  { label:'Zone 7',  sub:'Air bike — 25 calories',         type:'zone', def:75,
+    zCfg:{ modes:['split-reps'],          unit:'cal',  cap:25,  step:1,  maxTrans:3 } },
+  { label:'Run 8',   sub:'160m run',                       type:'run',  def:62  },
+  { label:'Zone 8',  sub:'Dead ball shoulder overs — 20',  type:'zone', def:70,
+    zCfg:{ modes:['split-reps'],          unit:'reps', cap:20,  step:1,  maxTrans:3 } },
+  { label:'Run 9',   sub:'160m run',                       type:'run',  def:64  },
+  { label:'Zone 9',  sub:'Tank push/pull — 100m',          type:'zone', def:90,
+    zCfg:{ modes:['split-meters'],        unit:'m',    cap:100, step:20, maxTrans:2 } },
+  { label:'Run 10',  sub:'160m run',                       type:'run',  def:66  },
+  { label:'Zone 10', sub:'RAM burpees — 20 reps',          type:'zone', def:80,
+    zCfg:{ modes:['split-reps'],          unit:'reps', cap:20,  step:1,  maxTrans:6 } },
 ];
 
 /* solo times */
 const times = SEGMENTS.map(s => s.def);
+const notes = SEGMENTS.map(() => '');
 
 /* partner state per segment
    run:  { assignee: 'a'|'b'|'both', timeA, timeB }
@@ -489,7 +509,7 @@ function onLockValueChange() {
 function applyLockValue() {
   let val = parseInt(document.getElementById('lock-val').value);
   if (isNaN(val)) return;
-  val = Math.max(60, Math.min(480, val));
+  val = Math.max(15, Math.min(180, val));
   SEGMENTS.forEach((seg, i) => {
     if (seg.type !== 'run') return;
     times[i] = val;
@@ -521,9 +541,9 @@ function rebuildSegList() {
     const tagTxt  = seg.type==='run' ? 'RUN' : 'ZONE '+zoneNum;
     const tagCls  = seg.type==='run' ? 'tag-run' : 'tag-zone';
     const slCls   = seg.type==='run' ? 'run-slider' : 'zone-slider';
-    const maxVal  = seg.type==='run' ? 480 : 480;
+    const maxVal  = seg.type==='run' ? 180 : 480;
     const stepVal = seg.type==='run' ? 1 : 1;
-    const minVal  = seg.type==='run' ? 60 : 30;
+    const minVal  = seg.type==='run' ? 15 : 30;
 
     const row = document.createElement('div');
     row.className = 'seg-row' + (seg.type === 'run' ? ' is-run' : '');
@@ -541,7 +561,16 @@ function rebuildSegList() {
         <div class="seg-sub">${seg.sub}</div>
         <input type="range" class="${slCls}" min="${minVal}" max="${maxVal}" step="${stepVal}"
                value="${times[i]}" id="sl-${i}" ${locked && seg.type==='run' ? 'disabled' : ''}
-               oninput="onSliderSolo(${i})">`;
+               oninput="onSliderSolo(${i})">
+        <div class="notes-row">
+          <button class="notes-toggle${notes[i]?' has-note':''}" id="nbtn-${i}" onclick="toggleNote(${i})">${notes[i]?'📝 Note ✓':'📝 Note'}</button>
+          <div class="notes-wrap${notes[i]?' open':''}" id="nwrap-${i}">
+            <textarea class="notes-textarea" id="ntxt-${i}" rows="2" maxlength="300"
+              placeholder="Add a note… (255 chars max)"
+              oninput="onNoteInput(${i})">${notes[i]}</textarea>
+            <div class="notes-char" id="ncc-${i}">${notes[i].length} / 255</div>
+          </div>
+        </div>`;
     } else {
       // Partner mode
       if (seg.type === 'run') {
@@ -586,7 +615,7 @@ function buildPartnerRunRow(i, seg, tagTxt, tagCls, locked) {
   if (effectiveAsgn === 'both') {
     sliderHtml = `
       <div style="font-size:10px;font-weight:700;color:#555;margin-bottom:0;">Both</div>
-      <input type="range" class="run-slider" min="60" max="480" step="1"
+      <input type="range" class="run-slider" min="15" max="180" step="1"
              value="${ps.timeA}" id="sl-${i}-both" ${locked?'disabled':''}
              oninput="onSliderPartnerRunBoth(${i})">
       <div style="text-align:right;font-size:12px;font-weight:700;color:#555;margin-top:-4px;"
@@ -594,7 +623,7 @@ function buildPartnerRunRow(i, seg, tagTxt, tagCls, locked) {
   } else if (effectiveAsgn === 'a') {
     sliderHtml = `
       <div style="font-size:10px;font-weight:700;color:${ca.color};margin-bottom:0;">${ca.name}</div>
-      <input type="range" class="run-slider" min="60" max="480" step="1"
+      <input type="range" class="run-slider" min="15" max="180" step="1"
              value="${ps.timeA}" id="sl-${i}-a" ${locked?'disabled':''}
              oninput="onSliderPartnerRun(${i},'a')">
       <div style="text-align:right;font-size:12px;font-weight:700;color:${ca.color};margin-top:-4px;"
@@ -602,7 +631,7 @@ function buildPartnerRunRow(i, seg, tagTxt, tagCls, locked) {
   } else {
     sliderHtml = `
       <div style="font-size:10px;font-weight:700;color:${cb.color};margin-bottom:0;">${cb.name}</div>
-      <input type="range" class="run-slider" min="60" max="480" step="1"
+      <input type="range" class="run-slider" min="15" max="180" step="1"
              value="${ps.timeB}" id="sl-${i}-b" ${locked?'disabled':''}
              oninput="onSliderPartnerRun(${i},'b')">
       <div style="text-align:right;font-size:12px;font-weight:700;color:${cb.color};margin-top:-4px;"
@@ -618,7 +647,16 @@ function buildPartnerRunRow(i, seg, tagTxt, tagCls, locked) {
     </div>
     <div class="seg-sub">${seg.sub}</div>
     ${assignButtons}
-    ${sliderHtml}`;
+    ${sliderHtml}
+    <div class="notes-row">
+      <button class="notes-toggle${notes[i]?' has-note':''}" id="nbtn-${i}" onclick="toggleNote(${i})">${notes[i]?'📝 Note ✓':'📝 Note'}</button>
+      <div class="notes-wrap${notes[i]?' open':''}" id="nwrap-${i}">
+        <textarea class="notes-textarea" id="ntxt-${i}" rows="2" maxlength="300"
+          placeholder="Add a note… (255 chars max)"
+          oninput="onNoteInput(${i})">${notes[i]}</textarea>
+        <div class="notes-char" id="ncc-${i}">${notes[i].length} / 255</div>
+      </div>
+    </div>`;
 }
 
 function buildAssignBtn(i, which, comp) {
@@ -720,6 +758,15 @@ function buildPartnerZoneRow(i, seg, tagTxt, tagCls) {
       <div class="tp-splits" id="tturns-${i}">${turnRows}</div>
       ${totalLine}
       ${addBtn}
+    </div>
+    <div class="notes-row">
+      <button class="notes-toggle${notes[i]?' has-note':''}" id="nbtn-${i}" onclick="toggleNote(${i})">${notes[i]?'📝 Note ✓':'📝 Note'}</button>
+      <div class="notes-wrap${notes[i]?' open':''}" id="nwrap-${i}">
+        <textarea class="notes-textarea" id="ntxt-${i}" rows="2" maxlength="300"
+          placeholder="Add a note… (255 chars max)"
+          oninput="onNoteInput(${i})">${notes[i]}</textarea>
+        <div class="notes-char" id="ncc-${i}">${notes[i].length} / 255</div>
+      </div>
     </div>`;
 }
 
@@ -842,6 +889,31 @@ function rebuildZoneRow(i) {
 /* ═══════════════════════════════════════════════
    RECALC
 ═══════════════════════════════════════════════ */
+function toggleNote(i) {
+  const wrap   = document.getElementById('nwrap-'+i);
+  const btn    = document.getElementById('nbtn-'+i);
+  const isOpen = wrap.classList.toggle('open');
+  if (isOpen) {
+    btn.textContent = '📝 Hide';
+    document.getElementById('ntxt-'+i).focus();
+  } else {
+    btn.textContent = notes[i] ? '📝 Note ✓' : '📝 Note';
+    btn.classList.toggle('has-note', !!notes[i]);
+  }
+}
+
+function onNoteInput(i) {
+  const ta  = document.getElementById('ntxt-'+i);
+  const cc  = document.getElementById('ncc-'+i);
+  let val   = ta.value.replace(/[^a-zA-Z0-9 .,!?'"\-–—()\n]/g, ''); // alphanumerics + common punctuation
+  if (val.length > 255) val = val.slice(0, 255);
+  ta.value  = val;
+  notes[i]  = val;
+  cc.textContent = val.length + ' / 255';
+  const btn = document.getElementById('nbtn-'+i);
+  btn.classList.toggle('has-note', !!val);
+}
+
 function recalc() {
   if (mode === 'solo') {
     recalcSolo();
@@ -1054,7 +1126,7 @@ function printRaceCard(eventDetails) {
     const runNum = Math.ceil((segIdx + 1) / 2);
     let inner = '';
     if (!isPartner) {
-      inner = `<div class="solo-run">500m</div>`;
+      inner = `<div class="solo-run">160m</div>`;
     } else {
       const ps = pState[segIdx];
       if (ps.assignee === 'both') {
@@ -1106,7 +1178,7 @@ function printRaceCard(eventDetails) {
   const dateStamp = now.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: '2-digit' })
                        .replace(/\//g, '-');
   const namesPart = isPartner ? `${ca.name}-${cb.name}` : 'Solo';
-  const docTitle  = `DekaFit-${namesPart}-${dateStamp}-${timeStamp}`;
+  const docTitle  = `DekaeMile-${namesPart}-${dateStamp}-${timeStamp}`;
 
   // Event details header line
   const isRaceEvent = eventDetails && eventDetails.type === 'race';
@@ -1179,16 +1251,16 @@ function printRaceCard(eventDetails) {
 <body>
   <div class="header">
     <div class="header-left">
-      <div class="title">🏃 Deka Fit &nbsp;·&nbsp; ${isPartner ? 'Partner Race' : 'Solo Race'}</div>
+      <div class="title">🏃 Deka Mile &nbsp;·&nbsp; ${isPartner ? 'Partner Race' : 'Solo Race'}</div>
       ${eventLine}
     </div>
     <div class="legends">${legend}</div>
   </div>
-  <div class="section-label">Runs (500m each)</div>
+  <div class="section-label">Runs (160m each)</div>
   <div class="grid">${runCells}</div>
   <div class="section-label">Zones</div>
   <div class="grid">${zoneCells}</div>
-  <div class="footer">Spartan DEKA &nbsp;·&nbsp; 10 zones + 10 × 500m runs</div>
+  <div class="footer">Spartan DEKA &nbsp;·&nbsp; 10 zones + 10 × 160m runs</div>
   <script>window.onload=function(){window.print();window.onafterprint=function(){window.close();};};<\/script>
 </body>
 </html>`;
